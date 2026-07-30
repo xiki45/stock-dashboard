@@ -341,6 +341,11 @@ let currentTicker = 'AAPL';
 let currentPeriod = '3d';
 let flowChartInstance = null;
 
+// ─── API 基地址：自动检测运行环境 ───
+// file://  → 本地开发（假设后端在 8899）
+// 其他     → 同源（Vercel 或后端托管）
+const API_BASE = location.protocol === 'file:' ? 'http://localhost:8899' : '';
+
 // ─── DOM refs ───
 const $ = id => document.getElementById(id);
 const tickerInput     = $('tickerInput');
@@ -385,9 +390,9 @@ async function loadAll(ticker) {
 
   try {
     const [stockData, newsData, compareData] = await Promise.all([
-      fetch(`api/stock/${ticker}?period=${currentPeriod}`).then(r => r.json()),
-      fetch(`api/news/${ticker}`).then(r => r.json()),
-      fetch(`api/compare/${ticker}`).then(r => r.json()),
+      fetch(`${API_BASE}/api/stock/${ticker}?period=${currentPeriod}`).then(r => r.json()),
+      fetch(`${API_BASE}/api/news/${ticker}`).then(r => r.json()),
+      fetch(`${API_BASE}/api/compare/${ticker}`).then(r => r.json()),
     ]);
     renderSummary(stockData);
     renderNews(newsData);
