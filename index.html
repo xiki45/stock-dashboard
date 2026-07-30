@@ -390,9 +390,9 @@ async function loadAll(ticker) {
 
   try {
     const [stockData, newsData, compareData] = await Promise.all([
-      fetch(`${API_BASE}/api/stock/${ticker}?period=${currentPeriod}`).then(r => r.json()),
-      fetch(`${API_BASE}/api/news/${ticker}`).then(r => r.json()),
-      fetch(`${API_BASE}/api/compare/${ticker}`).then(r => r.json()),
+      fetch(`${API_BASE}/api?route=stock&ticker=${ticker}&period=${currentPeriod}`).then(r => r.json()),
+      fetch(`${API_BASE}/api?route=news&ticker=${ticker}`).then(r => r.json()),
+      fetch(`${API_BASE}/api?route=compare&ticker=${ticker}`).then(r => r.json()),
     ]);
     renderSummary(stockData);
     renderNews(newsData);
