@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>美股看板 · Stock Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  background:#0d0e12;color:#e1e4e8;min-height:100vh;
+  display:flex;justify-content:center;padding:28px 20px;
+}
+.dashboard{max-width:1360px;width:100%}
+
+/* ── Header ── */
+.header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:28px;padding-bottom:18px;
+  border-bottom:1px solid rgba(255,255,255,0.06);
+  gap:16px;flex-wrap:wrap;
+}
+.search-area{display:flex;align-items:center;gap:10px}
+.ticker-input{
+  background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
+  border-radius:10px;padding:10px 16px;
+  font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:600;
+  color:#fff;width:160px;outline:none;transition:border .2s;
+}
+.ticker-input:focus{border-color:rgba(255,255,255,0.3)}
+.ticker-input::placeholder{color:rgba(255,255,255,0.15);font-weight:400;font-size:16px}
+.btn-search{
+  background:rgba(255,255,255,0.07);border:none;border-radius:8px;
+  color:rgba(255,255,255,0.7);padding:10px 18px;cursor:pointer;
+  font-size:14px;font-weight:600;transition:all .2s;
+}
+.btn-search:hover{background:rgba(255,255,255,0.12);color:#fff}
+.exchange-badge{
+  font-size:12px;font-weight:600;color:rgba(255,255,255,0.35);
+  background:rgba(255,255,255,0.05);padding:3px 10px;border-radius:5px;
+  letter-spacing:.03em;
+}
+.company-name{font-size:14px;color:rgba(255,255,255,0.4);font-weight:500;margin-left:4px}
+.header-right{display:flex;align-items:center;gap:16px}
+.period-label{font-size:12px;color:rgba(255,255,255,0.25);font-weight:500}
+.period-nav{
+  display:flex;gap:4px;background:rgba(255,255,255,0.04);
+  padding:3px;border-radius:9px;
+}
+.period-nav button{
+  padding:5px 14px;border-radius:7px;font-size:13px;font-weight:500;
+  color:rgba(255,255,255,0.35);background:transparent;border:none;
+  cursor:pointer;transition:all .2s;
+}
+.period-nav button.active{background:rgba(255,255,255,0.08);color:#fff}
+.period-nav button:hover:not(.active){color:rgba(255,255,255,.6)}
+.last-updated{
+  font-size:11px;color:rgba(255,255,255,0.2);font-weight:400;
+}
+
+/* ── Loading ── */
+.loading-overlay{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:80px 0;color:rgba(255,255,255,0.3);gap:16px;
+  display:none;
+}
+.spinner{width:32px;height:32px;border:3px solid rgba(255,255,255,0.06);border-top-color:rgba(255,255,255,0.4);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Summary Bar ── */
+.summary-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.summary-item{
+  background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);
+  border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;gap:5px;
+}
+.summary-label{font-size:11px;font-weight:600;color:rgba(255,255,255,0.25);letter-spacing:.04em;text-transform:uppercase}
+.summary-value{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:600;color:#fff;line-height:1.2}
+.summary-sub{font-size:12px;font-weight:500}
+.up{color:#f23645}.down{color:#00c853}.neutral{color:rgba(255,255,255,0.35)}
+
+/* ── Cards ── */
+.grid-2col{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
+.card{
+  background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);
+  border-radius:16px;overflow:hidden;
+}
+.card-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px 12px;border-bottom:1px solid rgba(255,255,255,0.04);
+}
+.card-title{
+  font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:700;
+  color:#fff;letter-spacing:-.01em;display:flex;align-items:center;gap:8px;
+}
+.card-title .badge{
+  font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;
+  background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.35);
+}
+.source-tag{
+  font-size:10px;font-weight:500;color:rgba(255,255,255,0.18);
+  letter-spacing:.02em;cursor:help;border-bottom:1px dotted rgba(255,255,255,0.1);
+}
+.card-body{padding:16px 20px 20px}
+.card-empty{padding:40px 20px;text-align:center;color:rgba(255,255,255,0.15);font-size:13px}
+
+/* ── News ── */
+.news-list{display:flex;flex-direction:column;gap:10px;max-height:500px;overflow-y:auto}
+.news-list::-webkit-scrollbar{width:4px}
+.news-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:2px}
+.news-item{
+  display:flex;gap:12px;padding:10px 12px;border-radius:8px;
+  background:rgba(255,255,255,0.02);transition:background .15s;cursor:default;
+}
+.news-item:hover{background:rgba(255,255,255,0.05)}
+.news-time{
+  flex-shrink:0;font-size:11px;font-family:'JetBrains Mono',monospace;
+  color:rgba(255,255,255,0.2);width:44px;padding-top:1px;
+}
+.news-content{flex:1;min-width:0}
+.news-title{font-size:13px;font-weight:500;color:rgba(255,255,255,0.75);line-height:1.45;margin-bottom:3px}
+.news-title a{color:inherit;text-decoration:none}
+.news-title a:hover{color:#fff}
+.news-meta{display:flex;gap:8px;font-size:11px;color:rgba(255,255,255,0.2);align-items:center}
+.source-link{font-size:11px;color:rgba(255,255,255,0.15);text-decoration:none}
+.source-link:hover{color:rgba(255,255,255,0.4);text-decoration:underline}
+
+/* ── Compare Table ── */
+.compact-table{width:100%;border-collapse:collapse}
+.compact-table th{
+  text-align:left;font-size:10px;font-weight:600;color:rgba(255,255,255,0.2);
+  text-transform:uppercase;letter-spacing:.05em;padding:6px 8px 8px;
+  border-bottom:1px solid rgba(255,255,255,0.04);
+}
+.compact-table td{padding:10px 8px;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.03)}
+.compact-table tr:last-child td{border:none}
+.compact-table .date-col{font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(255,255,255,0.45);font-weight:500}
+.compact-table .num-col{font-family:'JetBrains Mono',monospace;font-weight:500}
+.sentiment-cell{display:flex;align-items:center;gap:8px}
+.sentiment-track{flex:1;height:5px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;display:flex}
+.sentiment-bull{height:100%;background:#f23645;border-radius:3px 0 0 3px;transition:width .6s}
+.sentiment-bear{height:100%;background:#00c853;border-radius:0 3px 3px 0;transition:width .6s}
+.sentiment-pct{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;min-width:40px;text-align:right}
+
+/* ── Capital Flow Chart ── */
+.chart-wrapper{width:100%;height:210px;position:relative}
+.flow-legend{
+  display:flex;gap:20px;padding:12px 20px;
+  border-top:1px solid rgba(255,255,255,0.04);align-items:center;
+}
+.flow-legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.35);font-weight:500}
+.flow-dot{width:8px;height:8px;border-radius:50%}
+.flow-dot.inflow{background:#f23645}
+.flow-dot.outflow{background:#00c853}
+.flow-dot.net{background:#ffb347}
+.net-total{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600}
+.net-total.up{color:#f23645}.net-total.down{color:#00c853}
+.flow-method{
+  font-size:10px;color:rgba(255,255,255,0.12);padding:0 20px 10px;
+  font-style:italic;
+}
+
+/* ── Source Panel ── */
+.source-panel{
+  background:rgba(255,255,255,0.015);border:1px solid rgba(255,255,255,0.04);
+  border-radius:12px;padding:16px 20px;margin-top:8px;
+}
+.source-panel-title{
+  font-size:11px;font-weight:600;color:rgba(255,255,255,0.15);
+  letter-spacing:.03em;margin-bottom:10px;text-transform:uppercase;
+}
+.source-table{width:100%;border-collapse:collapse;font-size:11px}
+.source-table th{
+  text-align:left;color:rgba(255,255,255,0.2);font-weight:600;padding:4px 8px 4px 0;
+  border-bottom:1px solid rgba(255,255,255,0.03);
+}
+.source-table td{padding:5px 8px 5px 0;color:rgba(255,255,255,0.25);border-bottom:1px solid rgba(255,255,255,0.02);vertical-align:top}
+.source-table .src-code{
+  font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(255,255,255,0.35);
+  word-break:break-all;
+}
+.source-table .src-label{color:rgba(255,255,255,0.4);font-weight:500}
+
+@media(max-width:900px){
+  .grid-2col{grid-template-columns:1fr}
+  .summary-bar{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:500px){.summary-bar{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="dashboard">
+
+  <!-- ========== Header ========== -->
+  <header class="header">
+    <div class="search-area">
+      <input class="ticker-input" id="tickerInput" type="text" value="AAPL" placeholder="代码" maxlength="10">
+      <button class="btn-search" id="searchBtn">查 询</button>
+      <span class="exchange-badge" id="exchangeBadge">NASDAQ</span>
+      <span class="company-name" id="companyName">Apple Inc.</span>
+    </div>
+    <div class="header-right">
+      <div>
+        <div class="period-label">统计周期</div>
+        <span class="period-value" id="periodRange" style="font-size:13px;font-weight:600;color:rgba(255,255,255,0.6)">—</span>
+      </div>
+      <nav class="period-nav">
+        <button data-period="3d" class="active">3日</button>
+        <button data-period="7d">7日</button>
+      </nav>
+      <span class="last-updated" id="lastUpdated"></span>
+    </div>
+  </header>
+
+  <!-- ========== Loading ========== -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <span>正在拉取数据…</span>
+  </div>
+
+  <!-- ========== Content ========== -->
+  <div id="dashboardContent">
+
+    <!-- Summary Bar -->
+    <div class="summary-bar" id="summaryBar">
+      <div class="summary-item">
+        <span class="summary-label">最新价</span>
+        <span class="summary-value" id="sPrice">—</span>
+        <span class="summary-sub" id="sChange">—</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-label">多空比 (机构/空头)</span>
+        <span class="summary-value" id="sRatio">—</span>
+        <span class="summary-sub" id="sRatioLabel">—</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-label" id="netFlowLabel">净流入 (3日)</span>
+        <span class="summary-value" id="sNetFlow">—</span>
+        <span class="summary-sub" id="sNetFlowLabel">—</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-label">机构持股</span>
+        <span class="summary-value" id="sInst">—</span>
+        <span class="summary-sub" id="sInstLabel">—</span>
+      </div>
+    </div>
+
+    <!-- 2-Column Grid -->
+    <div class="grid-2col">
+
+      <!-- News Card -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title" id="newsTitle">近 3 日动态 <span class="badge" id="newsCount">0</span></div>
+          <span class="source-tag" title="端点: Yahoo Finance v1 Search API">ⓘ Yahoo Search API</span>
+        </div>
+        <div class="card-body" id="newsBody">
+          <div class="card-empty">输入股票代码查询</div>
+        </div>
+      </div>
+
+      <!-- Compare Card -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title" id="compareTitle">近 3 日多空对比 <span class="badge">估算</span></div>
+          <span class="source-tag" title="数据源见底部来源表">ⓘ 多源合成</span>
+        </div>
+        <div class="card-body" id="compareBody">
+          <div class="card-empty">输入股票代码查询</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Full Width: Capital Flow -->
+    <div class="card" style="margin-bottom:18px;">
+      <div class="card-header">
+        <div class="card-title" id="flowTitle">近 3 日资金流入 / 流出</div>
+        <span class="source-tag" title="端点: Yahoo Finance v8 Chart API (30m)">ⓘ Yahoo Chart API</span>
+      </div>
+      <div class="card-body" style="padding-bottom:0;" id="flowBody">
+        <div class="card-empty" style="padding:30px">输入股票代码查询</div>
+      </div>
+      <div class="flow-legend" id="flowLegend" style="display:none">
+        <div class="flow-legend-item"><span class="flow-dot inflow"></span> 资金流入</div>
+        <div class="flow-legend-item"><span class="flow-dot outflow"></span> 资金流出</div>
+        <div class="flow-legend-item"><span class="flow-dot net"></span> 净流入</div>
+        <div class="net-total" id="netTotal">—</div>
+      </div>
+      <div class="flow-method" id="flowMethod"></div>
+    </div>
+
+    <!-- Source Attribution Panel -->
+    <div class="source-panel">
+      <div class="source-panel-title">📡 数据接口来源声明</div>
+      <table class="source-table">
+        <thead><tr><th style="width:100px">模块</th><th style="width:280px">端点 / 来源</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="src-label">报价 & 日线</td>
+            <td class="src-code">Yahoo Finance v8 Chart API<br><code>query1.finance.yahoo.com/v8/finance/chart/{ticker}</code></td>
+            <td>实时股价、历史OHLCV、前收盘价、52周高低</td>
+          </tr>
+          <tr>
+            <td class="src-label">公司基本面</td>
+            <td class="src-code">yfinance (Yahoo Quote API)<br><code>yfinance.Ticker("{ticker}").info</code></td>
+            <td>市盈率、市净率、市值、行业、β系数</td>
+          </tr>
+          <tr>
+            <td class="src-label">新闻动态</td>
+            <td class="src-code">Yahoo Finance v1 Search API<br><code>query1.finance.yahoo.com/v1/finance/search?q={ticker}</code></td>
+            <td>按相关性返回财经资讯，含标题、出版商、链接</td>
+          </tr>
+          <tr>
+            <td class="src-label">多空对比</td>
+            <td class="src-code">yfinance + Yahoo Quote API<br><code>shortRatio / shortPercentOfFloat / heldPercentInstitutions</code></td>
+            <td>空头比例、机构持股比例；日级别"多空比"基于日内振幅估算</td>
+          </tr>
+          <tr>
+            <td class="src-label">机构持仓</td>
+            <td class="src-code">yfinance (institution-ownership API)</td>
+            <td>机构持有者明细、共同基金持有明细</td>
+          </tr>
+          <tr>
+            <td class="src-label">资金流向</td>
+            <td class="src-code">Yahoo v8 Chart (30m) → 自建估算模型</td>
+            <td>基于30分钟K线的OHLCV：上涨区间成交量×均价≈流入，下跌≈流出。<br>⚠️ 此为估算值，非交易所Level2精确数据</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─── State ───
+let currentTicker = 'AAPL';
+let currentPeriod = '3d';
+let flowChartInstance = null;
+
+// ─── DOM refs ───
+const $ = id => document.getElementById(id);
+const tickerInput     = $('tickerInput');
+const searchBtn       = $('searchBtn');
+const loadingOverlay  = $('loadingOverlay');
+const exchangeBadge   = $('exchangeBadge');
+const companyName     = $('companyName');
+const periodRange     = $('periodRange');
+const lastUpdated     = $('lastUpdated');
+const newsCount       = $('newsCount');
+const newsBody        = $('newsBody');
+const compareBody     = $('compareBody');
+const flowBody        = $('flowBody');
+const flowLegend      = $('flowLegend');
+const netTotal        = $('netTotal');
+const flowMethod      = $('flowMethod');
+
+// ─── Period nav ───
+document.querySelectorAll('.period-nav button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.period-nav button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentPeriod = btn.dataset.period;
+    if (currentTicker) loadAll(currentTicker);
+  });
+});
+
+// ─── Search ───
+function doSearch() {
+  const val = tickerInput.value.trim().toUpperCase();
+  if (!val) return;
+  currentTicker = val;
+  loadAll(val);
+}
+searchBtn.addEventListener('click', doSearch);
+tickerInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+
+// ─── Main loader ───
+async function loadAll(ticker) {
+  loadingOverlay.style.display = 'flex';
+  $('dashboardContent').style.opacity = '0.4';
+
+  try {
+    const [stockData, newsData, compareData] = await Promise.all([
+      fetch(`api/stock/${ticker}?period=${currentPeriod}`).then(r => r.json()),
+      fetch(`api/news/${ticker}`).then(r => r.json()),
+      fetch(`api/compare/${ticker}`).then(r => r.json()),
+    ]);
+    renderSummary(stockData);
+    renderNews(newsData);
+    renderCompare(compareData, stockData);
+    renderFlow(stockData);
+    updateMeta(stockData);
+    updateSources(ticker);
+  } catch (e) {
+    console.error(e);
+    alert('数据拉取失败，请确认股票代码是否正确或后端是否运行。');
+  }
+
+  loadingOverlay.style.display = 'none';
+  $('dashboardContent').style.opacity = '1';
+}
+
+// ─── Summary ───
+function renderSummary(d) {
+  const meta = d.meta || {};
+  const daily = d.daily || [];
+  const flow = d.flow || {};
+  const info = d.info || {};
+
+  const price = meta.regularPrice || 0;
+  const prevClose = meta.previousClose || price;
+  const change = price - prevClose;
+  const changePct = prevClose > 0 ? (change / prevClose * 100) : 0;
+
+  $('sPrice').textContent = `$${price.toFixed(2)}`;
+  $('sChange').textContent = `${change >= 0 ? '▲' : '▼'} ${Math.abs(change).toFixed(2)} (${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%)`;
+  $('sChange').className = `summary-sub ${change >= 0 ? 'up' : 'down'}`;
+
+  // Multi-short ratio
+  const ratio = d.info?.shortRatio || compareData?.shortRatio;
+  const sr = info.shortPercentOfFloat ?? 0;
+  const inst = info.heldPercentInstitutions ?? 0;
+  if (inst > 0) {
+    const bullRatio = inst / (sr + 0.1);
+    $('sRatio').textContent = bullRatio.toFixed(2);
+    $('sRatioLabel').textContent = `机构 ${inst.toFixed(1)}% · 空头 ${sr.toFixed(1)}%`;
+  } else if (ratio) {
+    $('sRatio').textContent = ratio.toFixed(2);
+    $('sRatioLabel').textContent = ratio > 1 ? '▲ 多头主导' : '▼ 空头主导';
+  } else {
+    $('sRatio').textContent = '—';
+    $('sRatioLabel').textContent = '数据不足';
+  }
+
+  // Net flow
+  const tot = flow.total || {};
+  const net = tot.net || 0;
+  const netStr = net >= 0 ? '+' : '';
+  $('sNetFlow').textContent = net !== 0 ? `${netStr}$${(net / 1e6).toFixed(1)}M` : '—';
+  $('sNetFlow').textContent = net !== 0 ? (net >= 1e9 ? `${netStr}$${(net/1e9).toFixed(2)}B` : `${netStr}$${(net/1e6).toFixed(1)}M`) : '—';
+  $('sNetFlowLabel').textContent = net >= 0 ? '▲ 资金净流入' : '▼ 资金净流出';
+  $('sNetFlow').className = `summary-value ${net >= 0 ? 'up' : 'down'}`;
+  $('sNetFlowLabel').className = `summary-sub ${net >= 0 ? 'up' : 'down'}`;
+
+  // Institutional
+  $('sInst').textContent = inst > 0 ? `${inst.toFixed(1)}%` : '—';
+  const avgVol = info.averageVolume || 0;
+  $('sInstLabel').textContent = avgVol > 0 ? `日均量 ${(avgVol/1e6).toFixed(1)}M` : '—';
+}
+
+// ─── News ───
+function renderNews(d) {
+  const list = d.news || [];
+  newsCount.textContent = list.length;
+  if (!list.length) {
+    newsBody.innerHTML = '<div class="card-empty">暂无相关新闻</div>';
+    return;
+  }
+  let html = '<div class="news-list">';
+  list.forEach(n => {
+    const ts = n.ts || 0;
+    const d2 = new Date(ts * 1000);
+    const timeStr = ts ? `${(d2.getMonth()+1).toString().padStart(2,'0')}/${d2.getDate().toString().padStart(2,'0')}` : '';
+    html += `
+      <div class="news-item">
+        <span class="news-time">${timeStr}</span>
+        <div class="news-content">
+          <div class="news-title"><a href="${n.link}" target="_blank" rel="noopener">${n.title}</a></div>
+          <div class="news-meta">
+            <span>${n.publisher || ''}</span>
+            <a class="source-link" href="${n.link}" target="_blank">阅读原文 →</a>
+          </div>
+        </div>
+      </div>`;
+  });
+  html += '</div>';
+  newsBody.innerHTML = html;
+}
+
+// ─── Compare ───
+function renderCompare(comp, stock) {
+  const info = stock.info || {};
+  const shortRatio = comp.shortRatio ?? info.shortRatio;
+  const shortPct = comp.shortPercentOfFloat ?? (info.shortPercentOfFloat ?? 0);
+  const instPct = comp.heldPercentInstitutions ?? (info.heldPercentInstitutions ?? 0);
+  const insiderPct = comp.heldPercentInsiders ?? (info.heldPercentInsiders ?? 0);
+
+  // 构建多空日级别估算数据 (基于日线振幅，后端已按 period 返回对应天数)
+  const daily = stock.daily || [];
+  const dayVals = daily.map(d => ({
+    date: d.time ? d.time.slice(5,10) : '',
+    open: d.open, close: d.close, volume: d.volume,
+    high: d.high, low: d.low,
+    bullPct: 50 + ((d.close - d.open) / (d.high - d.low || 1)) * 30,
+  }));
+
+  const recentDays = dayVals;
+
+  if (!recentDays.length && !shortRatio && !instPct) {
+    compareBody.innerHTML = '<div class="card-empty">数据不足</div>';
+    return;
+  }
+
+  // 用日内波动估算每日多空占比
+  let html = '<table class="compact-table"><thead><tr><th>日期</th><th>多头占比</th><th>空头占比</th><th>估算多空比</th><th>成交量</th></tr></thead><tbody>';
+  recentDays.forEach(d => {
+    const bull = Math.max(30, Math.min(70, d.bullPct));
+    const bear = 100 - bull;
+    const ratioVal = (bull / (bear || 1)).toFixed(2);
+    const volStr = d.volume >= 1e6 ? `${(d.volume/1e6).toFixed(1)}M` : `${(d.volume/1000).toFixed(0)}K`;
+    html += `
+      <tr>
+        <td class="date-col">${d.date}</td>
+        <td>
+          <div class="sentiment-cell">
+            <div class="sentiment-track">
+              <div class="sentiment-bull" style="width:${bull}%"></div>
+              <div class="sentiment-bear" style="width:${bear}%"></div>
+            </div>
+            <div class="sentiment-pct"><span class="up">${bull.toFixed(0)}%</span></div>
+          </div>
+        </td>
+        <td class="num-col down">${bear.toFixed(0)}%</td>
+        <td class="num-col up">${ratioVal}</td>
+        <td class="num-col neutral" style="color:rgba(255,255,255,0.4)">${volStr}</td>
+      </tr>`;
+  });
+  html += '</tbody></table>';
+
+  // 机构/空头基准数据
+  html += `<div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.04);display:flex;gap:24px;flex-wrap:wrap;font-size:12px;">
+    <div><span style="color:rgba(255,255,255,0.2)">机构持股</span> <span style="font-weight:600;color:#f23645">${instPct.toFixed(2)}%</span></div>
+    <div><span style="color:rgba(255,255,255,0.2)">内部人持股</span> <span style="font-weight:600;color:rgba(255,255,255,0.6)">${insiderPct.toFixed(2)}%</span></div>
+    <div><span style="color:rgba(255,255,255,0.2)">空头比例</span> <span style="font-weight:600;color:#00c853">${shortPct.toFixed(2)}%</span></div>
+    <div><span style="color:rgba(255,255,255,0.2)">Short Ratio</span> <span style="font-weight:600;color:rgba(255,255,255,0.6)">${(shortRatio || 0).toFixed(2)}</span></div>
+  </div>`;
+
+  compareBody.innerHTML = html;
+}
+
+// ─── Flow Chart ───
+function renderFlow(d) {
+  const flow = d.flow || {};
+  const daily = flow.daily || [];
+  const total = flow.total || {};
+
+  if (!daily.length) {
+    flowBody.innerHTML = '<div class="card-empty">资金流向数据不足（需分钟线数据）</div>';
+    flowLegend.style.display = 'none';
+    flowMethod.textContent = '';
+    return;
+  }
+
+  flowLegend.style.display = 'flex';
+
+  // Net total
+  const net = total.net || 0;
+  const netStr = net >= 0 ? '+' : '';
+  const netDisplay = Math.abs(net) >= 1e9 ? `$${netStr}${(Math.abs(net)/1e9).toFixed(2)}B` : `$${netStr}${(Math.abs(net)/1e6).toFixed(1)}M`;
+  netTotal.textContent = netDisplay;
+  netTotal.className = `net-total ${net >= 0 ? 'up' : 'down'}`;
+
+  flowMethod.textContent = flow.method || '';
+
+  // Destroy old chart
+  if (flowChartInstance) { flowChartInstance.destroy(); flowChartInstance = null; }
+
+  flowBody.innerHTML = '<div class="chart-wrapper"><canvas id="flowChart"></canvas></div>';
+
+  const ctx = document.getElementById('flowChart').getContext('2d');
+  const labels = daily.map(d => d.date.slice(5));
+  const inflow = daily.map(d => (d.inflow / 1e6));
+  const outflow = daily.map(d => (d.outflow / 1e6));
+  const netArr = daily.map(d => (d.net / 1e6));
+
+  const gridColor = 'rgba(255,255,255,0.04)';
+
+  flowChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: '资金流入',
+          data: inflow,
+          backgroundColor: 'rgba(242,54,69,0.7)',
+          borderColor: '#f23645',
+          borderWidth: 1,
+          borderRadius: 4,
+          barPercentage: 0.35,
+          categoryPercentage: 0.7,
+          order: 2,
+        },
+        {
+          label: '资金流出',
+          data: outflow,
+          backgroundColor: 'rgba(0,200,83,0.6)',
+          borderColor: '#00c853',
+          borderWidth: 1,
+          borderRadius: 4,
+          barPercentage: 0.35,
+          categoryPercentage: 0.7,
+          order: 2,
+        },
+        {
+          label: '净流入',
+          data: netArr,
+          type: 'line',
+          borderColor: '#ffb347',
+          backgroundColor: 'rgba(255,179,71,0.06)',
+          borderWidth: 2.5,
+          pointBackgroundColor: '#ffb347',
+          pointBorderColor: '#0d0e12',
+          pointBorderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          tension: 0.3,
+          fill: true,
+          order: 1,
+          yAxisID: 'y1',
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(18,20,26,0.95)',
+          titleColor: 'rgba(255,255,255,0.6)',
+          bodyColor: '#fff',
+          borderColor: 'rgba(255,255,255,0.08)',
+          borderWidth: 1, padding: 10, cornerRadius: 8,
+          callbacks: {
+            label: ctx => {
+              const val = ctx.parsed.y;
+              const sign = val >= 0 ? '+' : '';
+              return ` ${ctx.dataset.label}: ${sign}$${val.toFixed(1)}M`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.25)', font: { family: 'JetBrains Mono', size: 11 } } },
+        y: { position: 'left', grid: { color: gridColor }, border: { display: false }, ticks: { color: 'rgba(255,255,255,0.15)', font: { family: 'JetBrains Mono', size: 10 }, callback: v => `$${v.toFixed(0)}M` } },
+        y1: { position: 'right', grid: { display: false }, border: { display: false }, ticks: { color: 'rgba(255,255,255,0.15)', font: { family: 'JetBrains Mono', size: 10 }, callback: v => `$${v.toFixed(0)}M` } },
+      }
+    }
+  });
+}
+
+// ─── Meta ───
+function updateMeta(d) {
+  const meta = d.meta || {};
+  const info = d.info || {};
+  exchangeBadge.textContent = meta.exchange || '—';
+  companyName.textContent = info.longName || '—';
+  const daily = d.daily || [];
+  if (daily.length >= 2) {
+    periodRange.textContent = `${daily[0].time.slice(0,10)} → ${daily[daily.length-1].time.slice(0,10)}`;
+  }
+  const ut = d.updated ? new Date(d.updated * 1000) : new Date();
+  lastUpdated.textContent = `更新 ${ut.getHours().toString().padStart(2,'0')}:${ut.getMinutes().toString().padStart(2,'0')}:${ut.getSeconds().toString().padStart(2,'0')}`;
+
+  // 周期相关标题/标签同步
+  const pLabel = currentPeriod === '3d' ? '3 日' : '7 日';
+  $('netFlowLabel').textContent = `净流入 (${pLabel})`;
+  $('newsTitle').innerHTML = `近 ${pLabel} 动态 <span class="badge" id="newsCount">${newsCount.textContent}</span>`;
+  $('compareTitle').innerHTML = `近 ${pLabel} 多空对比 <span class="badge">估算</span>`;
+  $('flowTitle').textContent = `近 ${pLabel} 资金流入 / 流出`;
+}
+
+// ─── Sources update ───
+function updateSources(ticker) {
+  document.querySelectorAll('.src-code code').forEach(el => {
+    if (el.textContent.includes('{ticker}')) {
+      el.textContent = el.textContent.replace(/\{ticker\}/g, ticker);
+    }
+  });
+}
+
+// ─── Initial load ───
+loadAll('AAPL');
+</script>
+</body>
+</html>
