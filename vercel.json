@@ -1,7 +1,7 @@
 {
-  "rewrites": [
-    { "source": "/api/stock/:ticker", "destination": "/api/stock/[ticker]" },
-    { "source": "/api/news/:ticker", "destination": "/api/news/[ticker]" },
-    { "source": "/api/compare/:ticker", "destination": "/api/compare/[ticker]" }
+  "builds": [
+    { "src": "api/stock/[ticker].py", "use": "@vercel/python" },
+    { "src": "api/news/[ticker].py", "use": "@vercel/python" },
+    { "src": "api/compare/[ticker].py", "use": "@vercel/python" }
   ]
 }
