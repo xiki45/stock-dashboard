@@ -1,7 +1,5 @@
 {
   "builds": [
-    { "src": "api/stock/[ticker].py", "use": "@vercel/python" },
-    { "src": "api/news/[ticker].py", "use": "@vercel/python" },
-    { "src": "api/compare/[ticker].py", "use": "@vercel/python" }
+    { "src": "api/[...path].py", "use": "@vercel/python" }
   ]
 }
