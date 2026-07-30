@@ -5,12 +5,10 @@
 ```
 vercel-app/
 ├── api/
-│   ├── stock/[ticker].py     ← 报价+日线+资金流+公司信息
-│   ├── news/[ticker].py      ← 新闻（Yahoo Search API）
-│   └── compare/[ticker].py   ← 多空/机构数据（yfinance）
+│   └── [...path].py          ← 单个 catch-all handler，路由 /api/{stock|news|compare}/{ticker}
 ├── index.html                ← 前端页面
-├── vercel.json               ← builds 声明（无需 rewrites）
-└── requirements.txt          ← Python 依赖
+├── vercel.json               ← builds 配置（仅声明 Python runtime）
+└── requirements.txt          ← Python 依赖（yfinance）
 ```
 
 ## 部署方式
