@@ -9,33 +9,27 @@ vercel-app/
 │   ├── news/[ticker].py      ← 新闻（Yahoo Search API）
 │   └── compare/[ticker].py   ← 多空/机构数据（yfinance）
 ├── index.html                ← 前端页面
-├── vercel.json               ← 路由配置
+├── vercel.json               ← builds 声明（无需 rewrites）
 └── requirements.txt          ← Python 依赖
 ```
 
 ## 部署方式
 
-### 方式一：Vercel CLI（推荐）
+### GitHub 导入（推荐）
+
+1. 登录 https://vercel.com → **Add New Project**
+2. Import `xiki45/stock-dashboard`
+3. Vercel 自动识别 `api/**/[ticker].py` 为 Python Serverless Functions
+4. 点击 **Deploy**，几分钟后获得 `.vercel.app` 域名
+
+### Vercel CLI
 
 ```bash
-# 1. 安装 Vercel CLI
 npm i -g vercel
-
-# 2. 进入项目目录
 cd vercel-app
-
-# 3. 登录（首次需要）
 vercel login
-
-# 4. 部署
 vercel --prod
 ```
-
-### 方式二：GitHub 导入
-
-1. 将 `vercel-app/` 目录推到 GitHub 仓库
-2. 登录 https://vercel.com → New Project → Import Git Repository
-3. Vercel 自动识别 Python Serverless Functions，直接 Deploy
 
 ## 数据源说明
 
