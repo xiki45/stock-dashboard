@@ -1,0 +1,7 @@
+{
+  "rewrites": [
+    { "source": "/api/stock/(.*)", "destination": "/api/stock?ticker=$1" },
+    { "source": "/api/news/(.*)", "destination": "/api/news?ticker=$1" },
+    { "source": "/api/compare/(.*)", "destination": "/api/compare?ticker=$1" }
+  ]
+}
